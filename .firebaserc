@@ -1,0 +1,6 @@
+{
+  "projects": {
+    "server": "nukes-and-origami",
+    "default": "nukes-and-origami"
+  }
+}
