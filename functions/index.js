@@ -17,11 +17,43 @@ const MAX_RANK = 100;
  * Check if a score qualifies where rank <= MAX_RANK
  */
 exports.checkScore = functions.https.onRequest((req, res) => {
+  // validate request type
+  if (req.method !== 'GET') {
+    return res.status(405).end();
+  }
 
+  // store parameters
+  let data = req.query || {};
+  let score = Number.parseInt(escapeHtml(data.score));
+  
+  if (score) {
+    getAllScores().then(data => {
+      let result;
+      let rank;
 
+      for (let e of data) {
+        if (e.score <= score) {
+          result = e.rank;
+          break;
+        } else {
+          rank = e.rank + 1;
+        }
+      }
 
+      if (!result) {
+        result = rank;
+      }
+      
+      return res.send({ rank: result });
+    }).catch(error => {
+      console.log(error);
+      return res.status(500).end();
+    });
 
-});
+  } else {
+    return res.status(400).end();
+  }
+});  
 
 
 /**
@@ -40,25 +72,36 @@ exports.postScore = functions.https.onRequest((req, res) => {
   let name = escapeHtml(data.name);
   let score = Number.parseInt(escapeHtml(data.score));
 
-  // add parameters to database
   if (name && score) {
 
-    let existing = db.collection(COLLECTION_NAME)
+    // check for existing record to update
+    db.collection(COLLECTION_NAME).where('name', '==', name).get()
+    .then(snapshot => {
 
-    db.collection(COLLECTION_NAME).add({
-      name,
-      score
-    })
-    .then(() => {
-      return res.send({ result: 'success' });
-    }).catch(err => {
-      return res.status(500).end();
+      if (snapshot.empty) {
+        db.collection(COLLECTION_NAME).add({
+          name,
+          score
+        })
+        .then(() => {
+          return res.send({ result: 'success' });
+        }).catch(err => {
+          return res.status(500).end();
+        });
+      } else {
+        let index = snapshot.docs.indexOf(0).id;
+
+        db.collection(COLLECTION_NAME).doc(index).update(score)
+        .then(() => {
+          return res.send({ result: 'success' });
+        }).catch(err => {
+          return res.status(500).end();
+        });
+      }
     });
-  
   } else {
     return res.status(400).end();
   }
-
 });
 
 
@@ -76,35 +119,7 @@ exports.getScores = functions.https.onRequest((req, res) => {
   let result = {};
   result.userRank = {};
   
-  db.collection(COLLECTION_NAME).orderBy('score', 'desc').limit(MAX_RANK).get()
-  .then(snapshot => {
-    let scores = [];
-
-    let rank = 0;
-    let previousScore = Infinity;
-    let currentCount = 1;
-    
-    snapshot.forEach(doc => {
-      let row = doc.data();
-            
-      // advance rank counter
-      if (previousScore > row.score) {
-        previousScore = row.score;
-        rank += currentCount;
-        currentCount = 1;
-      } else {
-        currentCount += 1;
-      }
-
-      // add row to data
-      if (rank <= MAX_RANK) {
-        row.rank = rank;
-        scores.push(row);
-      }
-    });
-
-    return scores;
-  }).then(data => {
+  getAllScores().then(data => {
     result.leaderboard = data || new Array();
 
     if (name) {
@@ -121,7 +136,6 @@ exports.getScores = functions.https.onRequest((req, res) => {
   }).catch(error => {
     console.log(error);
     return res.status(500).end();
-    
   });
 });
 
@@ -156,3 +170,35 @@ exports.addMessage = functions.https.onRequest((req, res) => {
   });
   
 });
+
+function getAllScores() {
+  return db.collection(COLLECTION_NAME).orderBy('score', 'desc').limit(MAX_RANK).get()
+  .then(snapshot => {
+    let scores = [];
+
+    let rank = 0;
+    let previousScore = Infinity;
+    let currentCount = 1;
+    
+    snapshot.forEach(doc => {
+      let row = doc.data();
+            
+      // advance rank counter
+      if (previousScore > row.score) {
+        previousScore = row.score;
+        rank += currentCount;
+        currentCount = 1;
+      } else {
+        currentCount += 1;
+      }
+
+      // add row to data
+      if (rank <= MAX_RANK) {
+        row.rank = rank;
+        scores.push(row);
+      }
+    });
+
+    return scores;
+  })
+}
