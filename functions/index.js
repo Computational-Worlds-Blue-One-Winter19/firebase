@@ -12,7 +12,6 @@ const db = admin.firestore();
 const COLLECTION_NAME = '/scores';
 const MAX_RANK = 100;
 
-
 /**
  * Check if a score qualifies where rank <= MAX_RANK
  */
@@ -137,38 +136,6 @@ exports.getScores = functions.https.onRequest((req, res) => {
     console.log(error);
     return res.status(500).end();
   });
-});
-
-
-// examples
-exports.getMessage = functions.https.onRequest((req, res) => {
-  
-  db.collection('/messages').get()
-  .then(snapshot => {
-    let data = [];
-
-    snapshot.forEach(doc => {
-      data.push(doc.data());
-    })
-    return res.send({ data });
-  }).catch(err => {
-    return res.send({ error: err });
-  });
-
-});
-
-exports.addMessage = functions.https.onRequest((req, res) => {
-  let original = escapeHtml(req.body.text);
-  
-  db.collection('/messages').add({
-    original: original
-  })
-  .then(() => {
-    return res.send({ result: 'success', message: original })
-  }).catch(err => {
-    return res.status(500).end();
-  });
-  
 });
 
 function getAllScores() {
