@@ -12,6 +12,18 @@ const db = admin.firestore();
 const COLLECTION_NAME = '/scores';
 const MAX_RANK = 100;
 
+
+/**
+ * Check if a score qualifies where rank <= MAX_RANK
+ */
+exports.checkScore = functions.https.onRequest((req, res) => {
+
+
+
+
+});
+
+
 /**
  * Adds a given name and score to the database.
  * pre-condition:   request type POST; contains name and score
@@ -61,16 +73,17 @@ exports.getScores = functions.https.onRequest((req, res) => {
   let data = req.query || {};
   let name = escapeHtml(data.name);
 
-  // get all leaderboard data
-  let leaderboard = [];
-  let userRank = {};
-
-  let rank = 0;
-  let previousScore = Infinity;
-  let currentCount = 1;
-
-  db.collection(COLLECTION_NAME).orderBy('score', 'desc').get()
+  let result = {};
+  result.userRank = {};
+  
+  db.collection(COLLECTION_NAME).orderBy('score', 'desc').limit(MAX_RANK).get()
   .then(snapshot => {
+    let scores = [];
+
+    let rank = 0;
+    let previousScore = Infinity;
+    let currentCount = 1;
+    
     snapshot.forEach(doc => {
       let row = doc.data();
             
@@ -86,50 +99,60 @@ exports.getScores = functions.https.onRequest((req, res) => {
       // add row to data
       if (rank <= MAX_RANK) {
         row.rank = rank;
-        leaderboard.push(row);
+        scores.push(row);
       }
+    });
 
-      // if user match then add to user data
-      if (name === row.name) {
-        userRank.rank = row.rank;
-        userRank.score = row.score;
+    return scores;
+  }).then(data => {
+    result.leaderboard = data || new Array();
+
+    if (name) {
+      // check for name within data
+      for (let e of result.leaderboard) {
+        if (e.name === name) {
+          result.userRank.rank = e.rank;
+          result.userRank.score = e.score;
+        }
       }
-    })
-    return res.send({ leaderboard, userRank });
-  }).catch(err => {
+    }
+
+    return res.send(result);
+  }).catch(error => {
+    console.log(error);
     return res.status(500).end();
+    
+  });
+});
+
+
+// examples
+exports.getMessage = functions.https.onRequest((req, res) => {
+  
+  db.collection('/messages').get()
+  .then(snapshot => {
+    let data = [];
+
+    snapshot.forEach(doc => {
+      data.push(doc.data());
+    })
+    return res.send({ data });
+  }).catch(err => {
+    return res.send({ error: err });
   });
 
 });
 
-
-// // examples
-// exports.getMessage = functions.https.onRequest((req, res) => {
+exports.addMessage = functions.https.onRequest((req, res) => {
+  let original = escapeHtml(req.body.text);
   
-//   db.collection('messages').get()
-//   .then(snapshot => {
-//     let data = [];
-
-//     snapshot.forEach(doc => {
-//       data.push(doc.data());
-//     })
-//     return res.send({ data });
-//   }).catch(err => {
-//     return res.send({ error: err });
-//   });
-
-// });
-
-// exports.addMessage = functions.https.onRequest((req, res) => {
-//   let original = escapeHtml(req.body.text);
+  db.collection('/messages').add({
+    original: original
+  })
+  .then(() => {
+    return res.send({ result: 'success', message: original })
+  }).catch(err => {
+    return res.status(500).end();
+  });
   
-//   db.collection('messages').add({
-//     original: original
-//   })
-//   .then(() => {
-//     return res.send({ result: 'success', message: original })
-//   }).catch(err => {
-//     return res.status(500).end();
-//   });
-  
-// });
+});
