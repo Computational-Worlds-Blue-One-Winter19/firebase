@@ -21,6 +21,8 @@ exports.checkScore = functions.https.onRequest((req, res) => {
     return res.status(405).end();
   }
 
+  res.set('Access-Control-Allow-Origin', '*');
+
   // store parameters
   let data = req.query || {};
   let score = Number.parseInt(escapeHtml(data.score));
@@ -66,6 +68,8 @@ exports.postScore = functions.https.onRequest((req, res) => {
     return res.status(405).end();
   }
 
+  res.set('Access-Control-Allow-Origin', '*');
+
   // store parameters
   let data = req.body || {};
   let name = escapeHtml(data.name);
@@ -110,6 +114,8 @@ exports.getScores = functions.https.onRequest((req, res) => {
   if (req.method !== 'GET') {
     return res.status(405).end();
   }
+
+  res.set('Access-Control-Allow-Origin', '*');
 
   // store parameters
   let data = req.query || {};
