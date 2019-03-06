@@ -94,44 +94,37 @@ exports.postScore = functions.https.onRequest((req, res) => {
 
     // store parameters
     let data = req.body || {};
-    let name = escapeHtml(data.name);
+    let name = data.name ? escapeHtml(data.name) : undefined;
     let score = Number.parseInt(escapeHtml(data.score));
 
     if (name && score) {
+      //check for existing record to update
+      db.collection(COLLECTION_NAME).where('name', '==', name)
+        .get()
+        .then(snapshot => {
+          
+          if (snapshot.empty) {
+            // insert new record
+            let newPlayer = {
+              name,
+              score
+            }
+            db.collection(COLLECTION_NAME).add(newPlayer)
+              .then(() => {
+                return res.send({ result: 'success '});
+              })
+          } else {
+            // update old record
+            let docName = COLLECTION_NAME + '/' + snapshot.docs[0].id;
+            let doc = db.doc(docName);
 
-      // check for existing record to update
-      db.collection(COLLECTION_NAME).where('name', '==', name).get()
-      .then(snapshot => {
-
-        if (snapshot.empty) {
-          db.collection(COLLECTION_NAME).add({
-            name,
-            score
-          })
-          .then(() => {
-            return res.send({ result: 'success' });
-          }).catch(err => {
-            return res.status(500).end();
-          });
-        } else {
-          let index = snapshot.docs.indexOf(0).id;
-
-          db.collection(COLLECTION_NAME).doc(index).update(score)
-          .then(() => {
-            return res.send({ result: 'success' });
-          }).catch(error => {
-            // db access error
-            console.log({
-              error: 'Cloud Firestore access error',
-              function: 'postScore',
-              time: Date.UTC(),
-              msg: error
-            })
-            return res.status(500).end();
-          });
-        }
-      });
-
+            doc.update({ score })
+              .then(() => {
+                return res.send({ result: 'success '});
+              })
+          }
+          
+        });
     } else {
       // handle missing parameters
       return res.status(400).end();
@@ -157,8 +150,8 @@ exports.getScores = functions.https.onRequest((req, res) => {
   
     // store parameters
     let data = req.query || {};
-    let name = escapeHtml(data.name);
-
+    let name = data.name ? escapeHtml(data.name) : undefined;
+    
     let result = {};
     result.userRank = {};
     
