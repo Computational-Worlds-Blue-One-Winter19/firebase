@@ -9,6 +9,7 @@ const db = admin.firestore();
 
 // App configuration
 const CORS_DOMAIN = '*';
+const API_ENFORCE_DOMAIN = false;
 const COLLECTION_NAME = '/scores';
 const MAX_RANK = 100;
 
@@ -24,8 +25,8 @@ exports.checkScore = functions.https.onRequest((req, res) => {
     res.set('Access-Control-Allow-Methods', 'GET');
     res.set('Access-Control-Allow-Headers', 'Content-Type');
     res.set('Access-Control-Max-Age', '3600');
-    res.status(204).send('');
-  } else if (req.method === 'GET') {
+    return res.status(204).send('');
+  } else if (req.method === 'GET' && (API_ENFORCE_DOMAIN ? req.hostname === CORS_DOMAIN : true)) {
   
     // store parameters
     let data = req.query || {};
@@ -89,8 +90,8 @@ exports.postScore = functions.https.onRequest((req, res) => {
     res.set('Access-Control-Allow-Methods', 'POST');
     res.set('Access-Control-Allow-Headers', 'Content-Type');
     res.set('Access-Control-Max-Age', '3600');
-    res.status(204).send('');
-  } else if (req.method === 'POST') {
+    return res.status(204).send('');
+  } else if (req.method === 'POST' && (API_ENFORCE_DOMAIN ? req.hostname === CORS_DOMAIN : true)) {
 
     // store parameters
     let data = req.body || {};
@@ -124,6 +125,15 @@ exports.postScore = functions.https.onRequest((req, res) => {
               })
           }
           
+        }).catch(error => {
+          // db access error
+          console.log({
+            error: 'Cloud Firestore access error',
+            function: 'postScore',
+            time: Date.UTC(),
+            msg: error
+          })
+          return res.status(500).end();
         });
     } else {
       // handle missing parameters
@@ -145,9 +155,9 @@ exports.getScores = functions.https.onRequest((req, res) => {
     res.set('Access-Control-Allow-Methods', 'GET');
     res.set('Access-Control-Allow-Headers', 'Content-Type');
     res.set('Access-Control-Max-Age', '3600');
-    res.status(204).send('');
-  } else if (req.method === 'GET') {  
-  
+    return res.status(204).send('');
+  } else if (req.method === 'GET' && (API_ENFORCE_DOMAIN ? req.hostname === CORS_DOMAIN : true)) {
+    
     // store parameters
     let data = req.query || {};
     let name = data.name ? escapeHtml(data.name) : undefined;
